@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import datetime, os, ui, shutil, console, sys, clipboard, requests
+import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib
 
 def get_dir(path = os.path.expanduser('~')):
     dirs  = [] if path == os.path.expanduser('~') else ['..']
@@ -157,7 +157,7 @@ class FileManager(ui.View):
             pos = url.rfind('/') + 1
             filename = url[pos:]
             dl = requests.get(url, stream=True)
-            with open(filename, 'wb') as f:
+            with open(self.path + '/' + filename, 'wb') as f:
                 for chunk in dl.iter_content(chunk_size=1024):
                     if chunk:
                         f.write(chunk)
@@ -168,10 +168,28 @@ class FileManager(ui.View):
 
     def btn_Compress(self, sender):
         #zip(zipfile) + gzip,bz2(tarfile)
-        pass
+        #only one file at the moment
+        pos = self.filename.rfind('.')
+        if pos >= 0:
+            name = self.filename[:pos] + '.zip'
+        else:
+            name = self.filename + '.zip'
+        zf = zipfile.ZipFile(self.path + '/' + name, mode='w')
+        try:
+            zf.write(self.path + '/' + self.filename, os.path.basename(self.path + '/' + self.filename), compress_type=zipfile.ZIP_DEFLATED)
+        finally:
+            zf.close()
+        self.make_lst()
+        self.view['tableview1'].reload_data()
 
     def btn_Extract(self, sender):
-        pass
+        if self.filename[-4:] == '.zip':
+            file = open(self.path + '/' + self.filename, 'rb')
+            z = zipfile.ZipFile(file)
+            z.extractall(self.path)
+            file.close()
+        self.make_lst()
+        self.view['tableview1'].reload_data()
 
     def btn_HexView(self, sender):
         if self.filename != '':
@@ -212,7 +230,7 @@ class FileManager(ui.View):
         self.view_po['btn_Cancel'].action = self.btn_Cancel
 
     def btn_MakeDir_Okay(self, sender):
-        os.mkdir(self.view_po['textfield1'].text)
+        os.mkdir(self.path + '/' + self.view_po['textfield1'].text)
         self.make_lst()
         self.view['tableview1'].reload_data()
         self.view_po.close()
@@ -229,7 +247,7 @@ class FileManager(ui.View):
         self.view_po['btn_Cancel'].action = self.btn_Cancel
 
     def btn_Delete_Okay(self, sender):
-        os.remove(self.filename)
+        os.remove(self.path + '/' + self.filename)
         self.make_lst()
         self.view['tableview1'].reload_data()
         self.view_po.close()
@@ -247,7 +265,7 @@ class FileManager(ui.View):
 
     def btn_Copy_Okay(self, sender):
         if self.filename != self.view_po['textfield1'].text:
-            shutil.copyfile(self.filename, self.view_po['textfield1'].text)
+            shutil.copyfile(self.path + '/' + self.filename, self.path + '/' + self.view_po['textfield1'].text)
             self.make_lst()
             self.view['tableview1'].reload_data()
         self.view_po.close()
@@ -264,7 +282,7 @@ class FileManager(ui.View):
         self.view_po['btn_Cancel'].action = self.btn_Cancel
 
     def btn_Rename_Okay(self, sender):
-        os.rename(self.filename, self.view_po['textfield1'].text)
+        os.rename(self.path + '/' + self.filename, self.path + '/' + self.view_po['textfield1'].text)
         self.view_po.close()
         self.make_lst()
         self.view['tableview1'].reload_data()
