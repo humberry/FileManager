@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib
+import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib, tarfile
 
 def get_dir(path = os.path.expanduser('~')):
     dirs  = [] if path == os.path.expanduser('~') else ['..']
@@ -72,7 +72,6 @@ class FileManager(ui.View):
         self.view.present('full_screen')
 
     def btn_Settings(self, sender):
-        #presettings for compress,...
         pass
 
     def btn_Help(self, sender):
@@ -167,27 +166,112 @@ class FileManager(ui.View):
             self.view_po.close()
 
     def btn_Compress(self, sender):
-        #zip(zipfile) + gzip,bz2(tarfile)
-        #only one file at the moment
-        pos = self.filename.rfind('.')
-        if pos >= 0:
-            name = self.filename[:pos] + '.zip'
+        self.view_po = ui.load_view('compress')
+        self.view_po.present('popover',popover_location=(self.view.width/2,self.view.height/2))
+        self.view_po['btn_Okay'].action = self.btn_Compress_Okay
+        self.view_po['btn_Cancel'].action = self.btn_Cancel
+
+    def btn_Compress_Okay(self, sender):
+        comp = self.view_po['sc_compression'].selected_index
+        compression = ''
+        rang = self.view_po['sc_range'].selected_index
+        archive_name = self.path + '/' + self.view_po['tf_name'].text # no extension
+        if comp == 0:
+            compression = 'zip'
+        elif comp == 1:
+            compression = 'tar'
+        elif comp == 2:
+            compression = 'gztar'
         else:
-            name = self.filename + '.zip'
-        zf = zipfile.ZipFile(self.path + '/' + name, mode='w')
-        try:
-            zf.write(self.path + '/' + self.filename, os.path.basename(self.path + '/' + self.filename), compress_type=zipfile.ZIP_DEFLATED)
-        finally:
-            zf.close()
+            compression = 'bztar'
+        if rang == 0: # selected file
+            if compression == 'zip':
+                zf = zipfile.ZipFile(archive_name + '.zip', mode='w')
+                zf.write(self.path + '/' + self.filename, os.path.basename(self.path + '/' + self.filename), compress_type=zipfile.ZIP_DEFLATED)
+                zf.close()
+            elif compression == 'tar':
+                archive_name += '.tar'
+                tar = tarfile.open(archive_name, "w")
+                tar.add(self.path + '/' + self.filename,arcname=self.filename)
+                tar.close()
+            elif compression == 'gztar':
+                archive_name += '.tar.gz'
+                tar = tarfile.open(archive_name, "w:gz")
+                tar.add(self.path + '/' + self.filename,arcname=self.filename)
+                tar.close()
+            elif compression == 'bztar':
+                archive_name += '.tar.bz2'
+                tar = tarfile.open(archive_name, "w:bz2")
+                tar.add(self.path + '/' + self.filename,arcname=self.filename)
+                tar.close()
+        else:
+            if rang == 1: # all files
+                files = self.get_files()
+            elif rang == 2: # only python files (*.py*)
+                files = self.get_files(filter=True )
+            if compression == 'zip':
+                zf = zipfile.ZipFile(archive_name + '.zip', mode='w')
+                for file in files:
+                    zf.write(self.path + '/' + file, os.path.basename(self.path + '/' + file), compress_type=zipfile.ZIP_DEFLATED)
+                zf.close()
+            elif compression == 'tar':
+                archive_name += '.tar'
+                tar = tarfile.open(archive_name, "w")
+                for file in files:
+                    tar.add(self.path + '/' + file,arcname=file)
+                tar.close()
+            elif compression == 'gztar':
+                archive_name += '.tar.gz'
+                tar = tarfile.open(archive_name, "w:gz")
+                for file in files:
+                    tar.add(self.path + '/' + file,arcname=file)
+                tar.close()
+            elif compression == 'bztar':
+                archive_name += '.tar.bz2'
+                tar = tarfile.open(archive_name, "w:bz2")
+                for file in files:
+                    tar.add(self.path + '/' + file,arcname=file)
+                tar.close()
         self.make_lst()
         self.view['tableview1'].reload_data()
+        self.view_po.close()
+
+    def get_files(self,filter=False):
+        files = []
+        for entry in sorted(os.listdir(self.path)):
+            if os.path.isfile(self.path + '/' + entry):
+                if filter:
+                    if entry.find('.py') >= 0: # has to be fixed with re
+                        files.append(entry)
+                else:
+                    files.append(entry)
+        return files
 
     def btn_Extract(self, sender):
-        if self.filename[-4:] == '.zip':
-            file = open(self.path + '/' + self.filename, 'rb')
-            z = zipfile.ZipFile(file)
-            z.extractall(self.path)
-            file.close()
+        pos = self.filename.rfind('.')
+        ext = self.filename[pos+1:]
+        dir_name = ''
+        if ext == 'zip' or ext == 'tar':
+            dir_name = self.filename[:pos]
+            os.mkdir(self.path + '/' + dir_name)
+            if ext == 'zip':
+                file = open(self.path + '/' + self.filename, 'rb')
+                z = zipfile.ZipFile(file)
+                z.extractall(self.path + '/' + dir_name)
+                file.close()
+            elif ext == 'tar':
+                tar = tarfile.open(self.path + '/' + self.filename)
+                tar.extractall(self.path + '/' + dir_name)
+                tar.close()
+        elif ext == 'gz' or ext == 'bz2':
+            dir_name = self.filename[:pos-4]
+            os.mkdir(self.path + '/' + dir_name)
+            tar = tarfile.open(self.path + '/' + self.filename)
+            tar.extractall(self.path + '/' + dir_name)
+            tar.close()
+        else:
+            #unsupported type
+            pass
         self.make_lst()
         self.view['tableview1'].reload_data()
 
@@ -212,7 +296,6 @@ class FileManager(ui.View):
         shutil.rmtree(self.path)
         pos = self.path.rfind('/')
         dir = self.path[:pos]
-        os.chdir(dir)
         self.path = dir
         self.make_lst()
         self.view['tableview1'].reload_data()
