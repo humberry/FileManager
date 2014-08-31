@@ -404,7 +404,7 @@ class FileManager(ui.View):
         tableview.flex = 'WH'
         tableview.row_height = 40
         tableview.bg_color = 'black'
-        tableview.background_color = '#DBDBDB'
+        tableview.background_color = 'white'
         tableview.allows_selection = True
         self.view.add_subview(tableview)
         return tableview
