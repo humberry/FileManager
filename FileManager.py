@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib, tarfile
+import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib, tarfile, photos
 
 def get_dir(path = os.path.expanduser('~')):
     dirs  = [] if path == os.path.expanduser('~') else ['..']
@@ -67,11 +67,33 @@ class FileManager(ui.View):
         self.view['btn_Compress'].action = self.btn_Compress
         self.view['btn_Extract'].action = self.btn_Extract
         self.view['btn_HexView'].action = self.btn_HexView
+        self.view['btn_GetPic'].action = self.btn_GetPic #from CameraRoll
         self.view['btn_Settings'].action = self.btn_Settings
         self.view['btn_Help'].action = self.btn_Help
         self.view.present('full_screen')
 
+    @ui.in_background
+    def btn_GetPic(self, sender):
+        img = photos.pick_image()
+        if img == None:
+            return
+        counter = 0
+        ct_str = '000'
+        while os.path.exists(self.path + '/' + 'image' + ct_str + '.jpg'):
+            counter += 1
+            if counter > 9:
+                if counter > 99:
+                    ct_str = str(counter)
+                else:
+                    ct_str = '0' + str(counter)
+            else:
+                ct_str = '00' + str(counter)
+        img.save(self.path + '/' + 'image' + ct_str + '.jpg', 'JPEG')
+        self.make_lst()
+        self.view['tableview1'].reload_data()
+
     def btn_Settings(self, sender):
+        #? useful ?
         pass
 
     def btn_Help(self, sender):
@@ -140,19 +162,24 @@ class FileManager(ui.View):
 
     def btn_Download(self, sender):
         url = clipboard.get()
+        pos = url.find('://') # ftp://, http://, https:// >> 3-5
         self.view_po = ui.load_view('popover')
         self.view_po.name = 'Download'
         self.view_po.present('popover',popover_location=(self.view.width/2,self.view.height/2))
         self.view_po['label1'].hidden = True
         self.view_po['label2'].text = 'Url:'
         self.view_po['label3'].hidden = True
-        self.view_po['textfield1'].text = url
+        if pos < 3 or pos > 5:
+            self.view_po['textfield1'].text = 'http://www.'
+        else:
+            self.view_po['textfield1'].text = url
         self.view_po['btn_Okay'].action = self.btn_Download_Okay
         self.view_po['btn_Cancel'].action = self.btn_Cancel
 
     def btn_Download_Okay(self, sender):
         url = self.view_po['textfield1'].text
-        if url != '':
+        pos = url.find('://') # ftp://, http://, https:// >> 3-5
+        if pos > 2 or pos < 6:
             pos = url.rfind('/') + 1
             filename = url[pos:]
             dl = requests.get(url, stream=True)
@@ -172,8 +199,27 @@ class FileManager(ui.View):
         self.view_po['btn_Cancel'].action = self.btn_Cancel
 
     def btn_Compress_Okay(self, sender):
+        def tar_compress(archive_name, compression, filter=False, fn=[]):
+            if compression == 'tar':
+                archive_name += '.tar'
+                mode = 'w'
+            elif compression == 'gztar':
+                archive_name += '.tar.gz'
+                mode = 'w:gz'
+            elif compression == 'bztar':
+                archive_name += '.tar.bz2'
+                mode = 'w:bz2'
+            tar = tarfile.open(archive_name, mode)
+            if filter:
+                for file in fn:
+                    tar.add(self.path + '/' + file,arcname=file)
+            else:
+                tar.add(self.path + '/' + self.filename,arcname=self.filename)
+            tar.close()
+
         comp = self.view_po['sc_compression'].selected_index
         compression = ''
+        mode = ''
         rang = self.view_po['sc_range'].selected_index
         archive_name = self.path + '/' + self.view_po['tf_name'].text # no extension
         if comp == 0:
@@ -189,21 +235,8 @@ class FileManager(ui.View):
                 zf = zipfile.ZipFile(archive_name + '.zip', mode='w')
                 zf.write(self.path + '/' + self.filename, os.path.basename(self.path + '/' + self.filename), compress_type=zipfile.ZIP_DEFLATED)
                 zf.close()
-            elif compression == 'tar':
-                archive_name += '.tar'
-                tar = tarfile.open(archive_name, "w")
-                tar.add(self.path + '/' + self.filename,arcname=self.filename)
-                tar.close()
-            elif compression == 'gztar':
-                archive_name += '.tar.gz'
-                tar = tarfile.open(archive_name, "w:gz")
-                tar.add(self.path + '/' + self.filename,arcname=self.filename)
-                tar.close()
-            elif compression == 'bztar':
-                archive_name += '.tar.bz2'
-                tar = tarfile.open(archive_name, "w:bz2")
-                tar.add(self.path + '/' + self.filename,arcname=self.filename)
-                tar.close()
+            else:
+                tar_compress(archive_name, compression)
         else:
             if rang == 1: # all files
                 files = self.get_files()
@@ -214,24 +247,8 @@ class FileManager(ui.View):
                 for file in files:
                     zf.write(self.path + '/' + file, os.path.basename(self.path + '/' + file), compress_type=zipfile.ZIP_DEFLATED)
                 zf.close()
-            elif compression == 'tar':
-                archive_name += '.tar'
-                tar = tarfile.open(archive_name, "w")
-                for file in files:
-                    tar.add(self.path + '/' + file,arcname=file)
-                tar.close()
-            elif compression == 'gztar':
-                archive_name += '.tar.gz'
-                tar = tarfile.open(archive_name, "w:gz")
-                for file in files:
-                    tar.add(self.path + '/' + file,arcname=file)
-                tar.close()
-            elif compression == 'bztar':
-                archive_name += '.tar.bz2'
-                tar = tarfile.open(archive_name, "w:bz2")
-                for file in files:
-                    tar.add(self.path + '/' + file,arcname=file)
-                tar.close()
+            else:
+                tar_compress(archive_name, compression, filter=True, fn=files)
         self.make_lst()
         self.view['tableview1'].reload_data()
         self.view_po.close()
@@ -417,50 +434,9 @@ class FileManager(ui.View):
         else:
             self.filename = filename_tapped
 
-    def make_textview1(self):
-        textview = ui.TextView()
-        textview.name = 'tv_data'
-        textview.frame = self.frame
-        textview.x = 0
-        textview.y = 32
-        textview.width = self.view.width
-        textview.height = self.view.height - 32
-        textview.autoresizing = 'WHT'
-        textview.font = ('Courier', 15)
-        self.view.add_subview(textview)
-        return textview
-
-    def make_textfield1(self):
-        textfield = ui.TextField()
-        textfield.name = 'tf_search'
-        textfield.x = 0
-        textfield.y = 0
-        textfield.width = self.view.width - 161
-        textfield.height = 32
-        textfield.flex = 'WR'
-        textfield.border_width = 1
-        textfield.corner_radius = 5
-        self.view.add_subview(textfield)
-        return textfield
-
-    def make_button1(self, title = 'Search'):
-        button = ui.Button()
-        button.name = 'btn_search'
-        button.title = title
-        button.x = self.view.width - 149
-        button.y = 0
-        button.width = 144
-        button.height = 32
-        button.flex = 'WL'
-        button.border_width = 1
-        button.corner_radius = 5
-        button.action = self.button_action
-        self.view.add_subview(button)
-        return button
-
     def button_action(self, sender):
-        tvd = self.view['tv_data']
-        tfss = self.view['tf_search']
+        tvd = self.view_po['tv_data']
+        tfss = self.view_po['tf_search']
         if tfss.text != '':
             if tfss.text == FileManager.searchstr:
                 #next hit
@@ -485,28 +461,11 @@ class FileManager(ui.View):
             FileManager.pos = -1
 
     def hexview_a_file(self, filename):
-        self.hide_all()
-        self.textview1 = self.make_textview1()
-        self.textfield1 = self.make_textfield1()
-        self.button1 = self.make_button1()
-        self.view.name = 'HexViewer: ' + filename
+        self.view_po = ui.load_view('hexview')
+        self.view_po.name = 'HexViewer: ' + filename
+        self.view_po.present('full_screen')
+        self.view_po['btn_search'].action = self.button_action
         full_pathname = self.path + '/' + filename
-        self.textview1.text = hex_view(full_pathname)
-
-    def hide_all(self):
-        self.view['tableview1'].hidden = True
-        self.view['btn_Rename'].hidden = True
-        self.view['btn_Copy'].hidden = True
-        self.view['btn_Move'].hidden = True
-        self.view['btn_MakeDir'].hidden = True
-        self.view['btn_Delete'].hidden = True
-        self.view['btn_RemoveDir'].hidden = True
-        self.view['btn_OpenIn'].hidden = True
-        self.view['btn_Download'].hidden = True
-        self.view['btn_Compress'].hidden = True
-        self.view['btn_Extract'].hidden = True
-        self.view['btn_HexView'].hidden = True
-        self.view['btn_Settings'].hidden = True
-        self.view['btn_Help'].hidden = True
+        self.view_po['tv_data'].text = hex_view(full_pathname)
 
 FileManager()
