@@ -67,20 +67,13 @@ class FileManager(ui.View):
     @ui.in_background
     def btn_GetPic(self, sender):
         img = photos.pick_image()
-        if img == None:
+        if not img:
             return
-        counter = 0
-        ct_str = '000'
-        while os.path.exists(self.path + '/' + 'image' + ct_str + '.jpg'):
-            counter += 1
-            if counter > 9:
-                if counter > 99:
-                    ct_str = str(counter)
-                else:
-                    ct_str = '0' + str(counter)
-            else:
-                ct_str = '00' + str(counter)
-        img.save(self.path + '/' + 'image' + ct_str + '.jpg', 'JPEG')
+        for i in xrange(sys.maxint):
+            filename = '{}/image{}.jpg'.format(self.path, str(i).zfill(3))
+            if not os.path.exists(filename):
+                img.save(filename, 'JPEG')
+                break
         self.make_lst()
         self.view['tableview1'].reload_data()
 
