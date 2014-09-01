@@ -59,10 +59,33 @@ class FileManager(ui.View):
         self.set_button_actions()
         self.view.present('full_screen')
 
-        def set_button_actions(self):               # assumes that ALL buttons have an action method 
-            for subview in self.view.subviews:      # with EXACTLY the same name as the button name
-                if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
-                    subview.action = getattr(self, subview.name)
+    def set_button_actions(self):               # assumes that ALL buttons have an action method 
+        for subview in self.view.subviews:      # with EXACTLY the same name as the button name
+            if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
+                subview.action = getattr(self, subview.name)
+
+    def btn_PicView(self, sender):
+        self.view_po = ui.load_view('picview')
+        self.view_po.name = 'PicView: ' + self.filename
+        self.view_po.present('full_screen')
+        img = ui.Image.named(self.path + '/' + self.filename)
+        img_width,img_height = img.size
+        scr_width = self.view.width
+        scr_height = self.view.height
+        img_ratio = img_width / img_height
+        cor = 1.0
+        if img_width > img_height:
+            if scr_height > scr_width:
+                cor = 2.0
+            scr_height = scr_width / img_ratio
+        else:
+            if scr_width > scr_height:
+                cor = 2.0
+            scr_width = scr_height / img_ratio
+        with ui.ImageContext(scr_width,scr_height) as ctx:
+            img.draw(0,0,scr_width,scr_height/cor)
+            img2 = ctx.get_image()
+            self.view_po['imageview1'].image = img2
 
     @ui.in_background
     def btn_GetPic(self, sender):
