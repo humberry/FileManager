@@ -56,39 +56,24 @@ class FileManager(ui.View):
         self.lst = self.make_lst()
         self.lst_po = self.lst
         self.filename = ''
-        self.view['btn_Rename'].action = self.btn_Rename
-        self.view['btn_Copy'].action = self.btn_Copy
-        self.view['btn_Move'].action = self.btn_Move
-        self.view['btn_MakeDir'].action = self.btn_MakeDir
-        self.view['btn_Delete'].action = self.btn_Delete
-        self.view['btn_RemoveDir'].action = self.btn_RemoveDir
-        self.view['btn_OpenIn'].action = self.btn_OpenIn
-        self.view['btn_Download'].action = self.btn_Download
-        self.view['btn_Compress'].action = self.btn_Compress
-        self.view['btn_Extract'].action = self.btn_Extract
-        self.view['btn_HexView'].action = self.btn_HexView
-        self.view['btn_GetPic'].action = self.btn_GetPic #from CameraRoll
-        self.view['btn_Settings'].action = self.btn_Settings
-        self.view['btn_Help'].action = self.btn_Help
+        self.set_button_actions()
         self.view.present('full_screen')
+
+        def set_button_actions(self):               # assumes that ALL buttons have an action method 
+            for subview in self.view.subviews:      # with EXACTLY the same name as the button name
+                if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
+                    subview.action = getattr(self, subview.name)
 
     @ui.in_background
     def btn_GetPic(self, sender):
         img = photos.pick_image()
-        if img == None:
+        if not img:
             return
-        counter = 0
-        ct_str = '000'
-        while os.path.exists(self.path + '/' + 'image' + ct_str + '.jpg'):
-            counter += 1
-            if counter > 9:
-                if counter > 99:
-                    ct_str = str(counter)
-                else:
-                    ct_str = '0' + str(counter)
-            else:
-                ct_str = '00' + str(counter)
-        img.save(self.path + '/' + 'image' + ct_str + '.jpg', 'JPEG')
+        for i in xrange(sys.maxint):
+            filename = '{}/image{}.jpg'.format(self.path, str(i).zfill(3))
+            if not os.path.exists(filename):
+                img.save(filename, 'JPEG')
+                break
         self.make_lst()
         self.view['tableview1'].reload_data()
 
