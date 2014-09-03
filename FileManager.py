@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib, tarfile, photos
+import datetime, os, ui, shutil, console, sys, clipboard, requests, zipfile, zlib, tarfile, photos, editor
 
 def get_dir(path = os.path.expanduser('~')):
     dirs  = [] if path == os.path.expanduser('~') else ['..']
@@ -106,6 +106,10 @@ class FileManager(ui.View):
         for subview in self.view.subviews:      # with EXACTLY the same name as the button name
             if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
                 subview.action = getattr(self, subview.name)
+
+    def btn_Edit(self, sender):
+        editor.open_file(self.path + '/' + self.filename)
+        self.view.close()
 
     def btn_PicView(self, sender):
         img = ui.Image.named(self.path + '/' + self.filename)
