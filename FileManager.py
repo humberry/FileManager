@@ -41,6 +41,49 @@ def hex_view(filepath):
         return 'Error!\nFile = {}\nError = {}'.format(filepath, e)
     return return_value
 
+class MyImageView(ui.View):
+    def __init__(self,x,y,width,height,color,img):
+        self.color = color
+        self.x = x
+        self.y = y
+        self.height = height
+        self.width = width
+        self.img = img
+        self.img_width, self.img_height = self.img.size
+        self.img_ratio = self.img_width / self.img_height
+        self.img_cor = 1.0
+        self.scr_width = None 
+        self.scr_height = None 
+
+    def draw(self):
+        path = ui.Path.rect(0, 0, self.width, self.height)
+        ui.set_color(self.color)
+        path.fill()
+        self.img.draw(0,0,self.scr_width,self.scr_height/self.img_cor)
+
+    def layout(self):
+        if self.img_width > self.img_height:
+            if self.scr_height > self.scr_width:
+                self.img_cor = 2.0
+            self.scr_width = self.width
+            self.scr_height = self.scr_width / self.img_ratio
+        else:
+            if self.scr_width > self.scr_height:
+                self.img_cor = 2.0
+            self.scr_height = self.height
+            self.scr_width = self.scr_height / self.img_ratio
+
+    def touch_began(self, touch):
+        #zoom in/out
+        #get touch.location
+        pass
+
+    def touch_ended(self, touch):
+        #zoom in/out
+        #calc zoomfactor
+        #self.set_needs_display()
+        pass
+
 class FileManager(ui.View):
     pos = -1
     searchstr = ''
@@ -65,27 +108,10 @@ class FileManager(ui.View):
                 subview.action = getattr(self, subview.name)
 
     def btn_PicView(self, sender):
-        self.view_po = ui.load_view('picview')
+        img = ui.Image.named(self.path + '/' + self.filename)
+        self.view_po = MyImageView(0,0,self.width,self.height,'white',img)
         self.view_po.name = 'PicView: ' + self.filename
         self.view_po.present('full_screen')
-        img = ui.Image.named(self.path + '/' + self.filename)
-        img_width,img_height = img.size
-        scr_width = self.view.width
-        scr_height = self.view.height
-        img_ratio = img_width / img_height
-        cor = 1.0
-        if img_width > img_height:
-            if scr_height > scr_width:
-                cor = 2.0
-            scr_height = scr_width / img_ratio
-        else:
-            if scr_width > scr_height:
-                cor = 2.0
-            scr_width = scr_height / img_ratio
-        with ui.ImageContext(scr_width,scr_height) as ctx:
-            img.draw(0,0,scr_width,scr_height/cor)
-            img2 = ctx.get_image()
-            self.view_po['imageview1'].image = img2
 
     @ui.in_background
     def btn_GetPic(self, sender):
