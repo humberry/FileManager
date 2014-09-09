@@ -41,6 +41,60 @@ def hex_view(filepath):
         return 'Error!\nFile = {}\nError = {}'.format(filepath, e)
     return return_value
 
+favorites_html = '''<HTML><HEAD></HEAD><BODY><H1><P>
+    <a href="http://www.yahoo.com">Yahoo</a><br>
+    <a href="http://omz-forums.appspot.com/pythonista">Pythonista Forum</a><br>
+</P></H1></BODY></HTML>'''
+
+class webbrowser(ui.View):
+    def __init__(self):
+        self.present()
+
+    def did_load(self):
+        self.name = 'Webbrowser'
+        self['textfield1'].delegate = self['webview1'].delegate = self
+        self['button1'].action = self.bt_back
+        self['button2'].action = self.bt_forward
+        self['button3'].action = self.bt_home
+        self['button4'].action = self.bt_favorite
+        self.bt_home(None)
+
+    def load_url(self, url=None):
+        self['webview1'].load_url(url or self['textfield1'].text)
+
+    def bt_back(self, sender):
+        self['textfield1'].text = ''
+        self['webview1'].go_back()
+
+    def bt_forward(self, sender):
+        self['textfield1'].text = ''
+        self['webview1'].go_forward()
+
+    def bt_home(self, sender):
+        self['textfield1'].text = 'http://www.google.com'
+        self.load_url()
+
+    def bt_favorite(self, sender):
+        self['textfield1'].text = 'Favorites'
+        self['webview1'].load_html(favorites_html)
+
+    def textfield_did_begin_editing(self, textfield):
+        self['webview1'].stop()
+
+    def textfield_did_end_editing(self, textfield):
+        self.load_url()
+
+    def webview_did_start_load(self, webview):
+        self['textfield1'].text_color = 'orange'
+
+    def webview_did_finish_load(self, webview):
+        self['textfield1'].text_color = 'black'
+
+    def webview_did_fail_load(self, webview, error_code, error_msg):
+        self['textfield1'].text_color = 'red'
+        error_html = '<HTML><HEAD></HEAD><BODY><H1><P>error_code: ' + str(error_code) + ', ' + error_msg + ' <br></P></H1></BODY></HTML>'
+        self['webview1'].load_html(error_html)
+
 class MyImageView(ui.View):
     def __init__(self,x,y,width,height,color,img):
         self.color = color
@@ -73,17 +127,6 @@ class MyImageView(ui.View):
             self.scr_height = self.height
             self.scr_width = self.scr_height / self.img_ratio
 
-    def touch_began(self, touch):
-        #zoom in/out
-        #get touch.location
-        pass
-
-    def touch_ended(self, touch):
-        #zoom in/out
-        #calc zoomfactor
-        #self.set_needs_display()
-        pass
-
 class FileManager(ui.View):
     pos = -1
     searchstr = ''
@@ -106,6 +149,9 @@ class FileManager(ui.View):
         for subview in self.view.subviews:      # with EXACTLY the same name as the button name
             if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
                 subview.action = getattr(self, subview.name)
+
+    def btn_Webbrowser(self, sender):
+        ui.load_view('webbrowser')
 
     def btn_Edit(self, sender):
         editor.open_file(self.path + '/' + self.filename)
