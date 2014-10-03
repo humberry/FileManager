@@ -11,11 +11,12 @@ def get_dir(path = os.path.expanduser('~')):
         else:
             files.append(entry)
     dirs_and_files = ['/' + directory for directory in dirs]
-    for file in files:
-        full_pathname = path + '/' + file
-        size = '{} Bytes'.format(os.path.getsize(full_pathname))
-        date = datetime.datetime.fromtimestamp(os.path.getmtime(full_pathname))
-        dirs_and_files.append('{:43} | {:20} | {}'.format(file, size, date))
+    if path != os.path.expanduser('~'):
+        for file in files:
+            full_pathname = path + '/' + file
+            size = '{} Bytes'.format(os.path.getsize(full_pathname))
+            date = datetime.datetime.fromtimestamp(os.path.getmtime(full_pathname))
+            dirs_and_files.append('{:43} | {:20} | {}'.format(file, size, date))
     return dirs_and_files
 
 def get_dirs(path = os.path.expanduser('~')):
@@ -41,91 +42,54 @@ def hex_view(filepath):
         return 'Error!\nFile = {}\nError = {}'.format(filepath, e)
     return return_value
 
-favorites_html = '''<HTML><HEAD></HEAD><BODY><H1><P>
-    <a href="http://www.yahoo.com">Yahoo</a><br>
-    <a href="http://omz-forums.appspot.com/pythonista">Pythonista Forum</a><br>
-</P></H1></BODY></HTML>'''
-
-class webbrowser(ui.View):
-    def __init__(self):
-        self.present()
-
-    def did_load(self):
-        self.name = 'Webbrowser'
-        self['textfield1'].delegate = self['webview1'].delegate = self
-        self['button1'].action = self.bt_back
-        self['button2'].action = self.bt_forward
-        self['button3'].action = self.bt_home
-        self['button4'].action = self.bt_favorite
-        self.bt_home(None)
-
-    def load_url(self, url=None):
-        self['webview1'].load_url(url or self['textfield1'].text)
-
-    def bt_back(self, sender):
-        self['textfield1'].text = ''
-        self['webview1'].go_back()
-
-    def bt_forward(self, sender):
-        self['textfield1'].text = ''
-        self['webview1'].go_forward()
-
-    def bt_home(self, sender):
-        self['textfield1'].text = 'http://www.google.com'
-        self.load_url()
-
-    def bt_favorite(self, sender):
-        self['textfield1'].text = 'Favorites'
-        self['webview1'].load_html(favorites_html)
-
-    def textfield_did_begin_editing(self, textfield):
-        self['webview1'].stop()
-
-    def textfield_did_end_editing(self, textfield):
-        self.load_url()
-
-    def webview_did_start_load(self, webview):
-        self['textfield1'].text_color = 'orange'
-
-    def webview_did_finish_load(self, webview):
-        self['textfield1'].text_color = 'black'
-
-    def webview_did_fail_load(self, webview, error_code, error_msg):
-        self['textfield1'].text_color = 'red'
-        error_html = '<HTML><HEAD></HEAD><BODY><H1><P>error_code: ' + str(error_code) + ', ' + error_msg + ' <br></P></H1></BODY></HTML>'
-        self['webview1'].load_html(error_html)
-
 class MyImageView(ui.View):
-    def __init__(self,x,y,width,height,color,img):
+    def __init__(self,x,y,color,img):
         self.color = color
-        self.x = x
-        self.y = y
-        self.height = height
-        self.width = width
+        self.x_off = x
+        self.y_off = y
+        self.scr_height = None 
+        self.scr_width = None 
         self.img = img
         self.img_width, self.img_height = self.img.size
-        self.img_ratio = self.img_width / self.img_height
-        self.img_cor = 1.0
-        self.scr_width = None 
-        self.scr_height = None 
+        self.scr_cor = 2.0
+        self.ratio = 1.0
 
     def draw(self):
-        path = ui.Path.rect(0, 0, self.width, self.height)
+        self.scr_height = self.height
+        self.scr_width = self.width
+        path = ui.Path.rect(0, 0, self.scr_width, self.scr_height)
         ui.set_color(self.color)
         path.fill()
-        self.img.draw(0,0,self.scr_width,self.scr_height/self.img_cor)
+        self.img.draw(self.x_off,self.y_off,self.img_width*self.ratio/self.scr_cor,self.img_height*self.ratio/self.scr_cor)
+
+    def touch_began(self, touch):
+        self.close()
 
     def layout(self):
-        if self.img_width > self.img_height:
-            if self.scr_height > self.scr_width:
-                self.img_cor = 2.0
-            self.scr_width = self.width
-            self.scr_height = self.scr_width / self.img_ratio
+        scr_height_real = self.height * self.scr_cor
+        scr_width_real = self.width * self.scr_cor
+        y_ratio = scr_height_real / self.img_height
+        x_ratio = scr_width_real / self.img_width
+        # 1.0 = okay, <1.0 = Image to small, >1.0 = Image to big
+        if x_ratio == 1.0 and y_ratio == 1.0:
+            self.ratio = 1.0 #perfect size
+        elif x_ratio == 1.0 and y_ratio > 1.0:
+            self.ratio = 1.0 #perfect width
+        elif x_ratio > 1.0 and y_ratio == 1.0:
+            self.ratio = 1.0 #perfect height
+        elif x_ratio > 1.0 and y_ratio > 1.0:
+            self.ratio = 1.0 #show image in original size
+        elif x_ratio >= 1.0 and y_ratio < 1.0:
+            self.ratio = y_ratio #shrink height
+        elif x_ratio < 1.0 and y_ratio >= 1.0:
+            self.ratio = x_ratio #shrink width
+        elif x_ratio < 1.0 and y_ratio < 1.0:
+            if x_ratio < y_ratio: #which side?
+                self.ratio = x_ratio
+            else:
+                self.ratio = y_ratio
         else:
-            if self.scr_width > self.scr_height:
-                self.img_cor = 2.0
-            self.scr_height = self.height
-            self.scr_width = self.scr_height / self.img_ratio
+            print 'This should never happen. :('
 
 class FileManager(ui.View):
     pos = -1
@@ -150,8 +114,15 @@ class FileManager(ui.View):
             if isinstance(subview, ui.Button):  # `self.view['btn_Help'].action = self.btn_Help`
                 subview.action = getattr(self, subview.name)
 
-    def btn_Webbrowser(self, sender):
-        ui.load_view('webbrowser')
+    def btn_HTMLview(self, sender):
+        self.view_po = ui.View()
+        self.view_po.name = self.filename
+        wv = ui.WebView()
+        wv.width = self.view.width
+        wv.height = self.view.height
+        self.view_po.add_subview(wv)
+        self.view_po.present('full_screen')
+        wv.load_url(self.path + '/' + self.filename)
 
     def btn_Edit(self, sender):
         editor.open_file(self.path + '/' + self.filename)
@@ -159,8 +130,8 @@ class FileManager(ui.View):
 
     def btn_PicView(self, sender):
         img = ui.Image.named(self.path + '/' + self.filename)
-        self.view_po = MyImageView(0,0,self.width,self.height,'white',img)
-        self.view_po.name = 'PicView: ' + self.filename
+        self.view_po = MyImageView(0,0,'white',img)
+        self.view_po.name = 'PicView: ' + self.filename + '  ' + str(img.size)
         self.view_po.present('full_screen')
 
     @ui.in_background
@@ -176,20 +147,16 @@ class FileManager(ui.View):
         self.make_lst()
         self.view['tableview1'].reload_data()
 
-    def btn_Settings(self, sender):
-        #? useful ?
-        pass
-
-    def btn_Help(self, sender):
+    def btn_Help(self, sender, message='Use at your own risk. \nNo error handling!', name='Help'):
         self.view_po = ui.View()
-        self.view_po.name = 'Help'
+        self.view_po.name = name
         self.view_po.width = self.view_po.height = 300
         self.view_po.present('popover',popover_location=(self.view.width/2,self.view.height/2))
         textview = ui.TextView()
         textview.width = 300
         textview.height = 240
         textview.font = ('Courier', 18)
-        textview.text = 'Use at your own risk. \nNo error handling!'
+        textview.text = message
         textview.editable = False 
         self.view_po.add_subview(textview)
         button = ui.Button()
@@ -212,10 +179,21 @@ class FileManager(ui.View):
         self.view_po['tableview1'].reload()
 
     def btn_Move_Okay(self, sender):
-        shutil.move(self.path + '/' + self.filename,self.path_po + '/' + self.filename)
-        self.make_lst()
-        self.view['tableview1'].reload_data()
-        self.view_po.close()
+        if self.filename == '':
+            self.view_po.close()
+            self.btn_Help(None,message='No file is selected.',name='Error')
+        try:
+            if not os.path.isfile(self.path_po + '/' + self.filename):
+                shutil.move(self.path + '/' + self.filename,self.path_po + '/' + self.filename)
+                self.make_lst()
+                self.view['tableview1'].reload_data()
+                self.view_po.close()
+            else:
+                self.view_po.close()
+                self.btn_Help(None,message='File already exists in the destination directory.',name='Error')
+        except:
+            self.view_po.close()
+            self.btn_Help(None,message='Your selected file: ' + self.filename + " doesn't exist in the source directory. Please select the file and then directly press the Move-Button.",name='Error')
 
     def make_lst_po(self):
         dirs = get_dirs(self.path_po)
